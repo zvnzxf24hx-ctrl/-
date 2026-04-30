@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>工程设备在线监测数据分析 Agent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0e14;--bg2:#111820;--bg3:#1a2230;--bg4:#232d3f;
+  --cyan:#00d4ff;--cyan-dim:rgba(0,212,255,.15);--cyan-glow:rgba(0,212,255,.08);
+  --green:#00e676;--green-dim:rgba(0,230,118,.12);
+  --amber:#ffab00;--amber-dim:rgba(255,171,0,.12);
+  --red:#ff1744;--red-dim:rgba(255,23,68,.12);
+  --purple:#b388ff;--purple-dim:rgba(179,136,255,.12);
+  --text:#e0e6ed;--text2:#8899aa;--text3:#556677;
+  --border:#1e2a3a;--border2:#2a3a4e;
+  --mono:'JetBrains Mono',monospace;--sans:'Noto Sans SC',sans-serif;
+  --r:8px;--tr:.2s ease;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{font-size:14px;scroll-behavior:smooth}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--text3)}
+
+/* Header */
+.header{
+  position:sticky;top:0;z-index:100;
+  background:rgba(10,14,20,.92);backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);
+  padding:0 1.6rem;height:52px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.logo{display:flex;align-items:center;gap:.7rem}
+.logo-icon{
+  width:32px;height:32px;border-radius:6px;
+  background:linear-gradient(135deg,var(--cyan),#0088cc);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.85rem;font-weight:700;color:#000;
+  box-shadow:0 0 12px rgba(0,212,255,.3);
+}
+.logo-text{font-family:var(--mono);font-weight:600;font-size:1rem;color:var(--cyan);letter-spacing:.02em}
+.logo-sub{font-size:.68rem;color:var(--text3);margin-left:.3rem}
+.header-status{display:flex;align-items:center;gap:1.2rem}
+.status-pill{
+  display:flex;align-items:center;gap:.4rem;
+  padding:.25rem .7rem;border-radius:20px;
+  font-family:var(--mono);font-size:.72rem;font-weight:500;
+}
+.status-pill.live{background:var(--green-dim);color:var(--green)}
+.status-pill .dot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.header-time{font-family:var(--mono);font-size:.78rem;color:var(--text2)}
+
+/* Nav */
+.nav{
+  background:var(--bg2);border-bottom:1px solid var(--border);
+  padding:0 1.6rem;display:flex;gap:0;
+}
+.nav-item{
+  padding:.7rem 1.2rem;font-size:.82rem;font-weight:500;
+  color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;
+  transition:var(--tr);display:flex;align-items:center;gap:.4rem;
+}
+.nav-item:hover{color:var(--text2)}
+.nav-item.active{color:var(--cyan);border-bottom-color:var(--cyan)}
+.nav-item .badge{
+  font-family:var(--mono);font-size:.62rem;font-weight:600;
+  padding:.1rem .35rem;border-radius:10px;
+}
+.nav-item .badge.warn{background:var(--amber-dim);color:var(--amber)}
+.nav-item .badge.err{background:var(--red-dim);color:var(--red)}
+
+/* Layout */
+.content{padding:1rem 1.6rem;display:flex;flex-direction:column;gap:1rem}
+.page{display:none}.page.active{display:block}
+
+/* Cards */
+.card{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--r);overflow:hidden;
+}
+.card-h{
+  padding:.7rem 1rem;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.card-t{font-weight:600;font-size:.88rem;display:flex;align-items:center;gap:.4rem}
+.card-t .icon{font-size:1rem}
+.card-body{padding:1rem}
+.card-sm{padding:.6rem .8rem}
+
+/* Grid */
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:.8rem}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:.8rem}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
+.g21{display:grid;grid-template-columns:2fr 1fr;gap:.8rem}
+.g12{display:grid;grid-template-columns:1fr 2fr;gap:.8rem}
+
+/* Stat Card */
+.stat{
+  background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);
+  padding:1rem;position:relative;overflow:hidden;
+}
+.stat::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+}
+.stat.cyan::before{background:var(--cyan)}
+.stat.green::before{background:var(--green)}
+.stat.amber::before{background:var(--amber)}
+.stat.red::before{background:var(--red)}
+.stat-label{font-size:.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.3rem}
+.stat-val{font-family:var(--mono);font-size:1.6rem;font-weight:700;line-height:1}
+.stat-val.cyan{color:var(--cyan)}.stat-val.green{color:var(--green)}.stat-val.amber{color:var(--amber)}.stat-val.red{color:var(--red)}
+.stat-sub{font-size:.72rem;color:var(--text3);margin-top:.3rem;font-family:var(--mono)}
+.stat-trend{display:inline-flex;align-items:center;gap:.2rem;font-size:.7rem;font-family:var(--mono);margin-top:.2rem}
+.stat-trend.up{color:var(--green)}.stat-trend.down{color:var(--red)}
+
+/* Equipment List */
+.eq-list{display:flex;flex-direction:column;gap:.4rem}
+.eq-item{
+  display:grid;grid-template-columns:40px 1fr 100px 80px 80px 80px 60px;
+  align-items:center;gap:.6rem;
+  padding:.5rem .8rem;border-radius:var(--r);
+  background:var(--bg3);border:1px solid transparent;
+  font-size:.8rem;transition:var(--tr);cursor:pointer;
+}
+.eq-item:hover{border-color:var(--border2);background:var(--bg4)}
+.eq-item .eq-status{
+  width:10px;height:10px;border-radius:50%;
+  box-shadow:0 0 8px;
+}
+.eq-item .eq-status.ok{background:var(--green);box-shadow:0 0 8px rgba(0,230,118,.4)}
+.eq-item .eq-status.warn{background:var(--amber);box-shadow:0 0 8px rgba(255,171,0,.4)}
+.eq-item .eq-status.err{background:var(--red);box-shadow:0 0 8px rgba(255,23,68,.4)}
+.eq-name{font-weight:600;font-size:.82rem}
+.eq-id{font-family:var(--mono);font-size:.7rem;color:var(--text3)}
+.eq-val{font-family:var(--mono);font-size:.78rem;text-align:right}
+.eq-val.cyan{color:var(--cyan)}.eq-val.green{color:var(--green)}.eq-val.amber{color:var(--amber)}.eq-val.red{color:var(--red)}
+.eq-header{
+  display:grid;grid-template-columns:40px 1fr 100px 80px 80px 80px 60px;
+  gap:.6rem;padding:.4rem .8rem;
+  font-size:.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;
+  font-weight:600;
+}
+
+/* Canvas Charts */
+.chart-wrap{position:relative;width:100%;background:var(--bg);border-radius:var(--r);border:1px solid var(--border);overflow:hidden}
+.chart-wrap canvas{display:block;width:100%}
+.chart-label{position:absolute;top:.4rem;left:.6rem;font-size:.7rem;color:var(--text3);font-family:var(--mono)}
+.chart-legend{display:flex;gap:1rem;padding:.4rem .8rem;flex-wrap:wrap}
+.chart-legend-item{display:flex;align-items:center;gap:.3rem;font-size:.72rem;color:var(--text2)}
+.chart-legend-item .dot{width:8px;height:8px;border-radius:2px}
+
+/* Agent Panel */
+.agent-panel{display:flex;flex-direction:column;gap:.6rem}
+.agent-msg{
+  padding:.7rem 1rem;border-radius:var(--r);
+  font-size:.82rem;line-height:1.7;
+  animation:msgIn .3s ease;
+}
+@keyframes msgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.agent-msg.system{background:var(--bg3);border:1px solid var(--border);color:var(--text2)}
+.agent-msg.system .msg-tag{color:var(--cyan);font-family:var(--mono);font-size:.7rem;font-weight:600;display:block;margin-bottom:.3rem}
+.agent-msg.reasoning{background:var(--purple-dim);border:1px solid rgba(179,136,255,.2)}
+.agent-msg.reasoning .msg-tag{color:var(--purple);font-family:var(--mono);font-size:.7rem;font-weight:600;display:block;margin-bottom:.3rem}
+.agent-msg.result{background:var(--green-dim);border:1px solid rgba(0,230,118,.2)}
+.agent-msg.result .msg-tag{color:var(--green);font-family:var(--mono);font-size:.7rem;font-weight:600;display:block;margin-bottom:.3rem}
+.agent-msg.warning{background:var(--amber-dim);border:1px solid rgba(255,171,0,.2)}
+.agent-msg.warning .msg-tag{color:var(--amber);font-family:var(--mono);font-size:.7rem;font-weight:600;display:block;margin-bottom:.3rem}
+.agent-msg.error{background:var(--red-dim);border:1px solid rgba(255,23,68,.2)}
+.agent-msg.error .msg-tag{color:var(--red);font-family:var(--mono);font-size:.7rem;font-weight:600;display:block;margin-bottom:.3rem}
+.agent-msg.data{background:var(--cyan-dim);border:1px solid rgba(0,212,255,.15)}
+.agent-msg.data .msg-tag{color:var(--cyan);font-family:var(--mono);font-size:.7rem;font-weight:600;display:block;margin-bottom:.3rem}
+.agent-msg ul{padding-left:1.2rem;margin:.3rem 0}
+.agent-msg li{margin:.2rem 0}
+.agent-msg code{font-family:var(--mono);background:rgba(0,0,0,.3);padding:.1rem .3rem;border-radius:3px;font-size:.78rem}
+
+/* Agent Input */
+.agent-input-wrap{
+  display:flex;gap:.5rem;padding:.8rem 1rem;
+  border-top:1px solid var(--border);background:var(--bg3);
+}
+.agent-input{
+  flex:1;background:var(--bg);border:1px solid var(--border2);
+  border-radius:var(--r);padding:.5rem .8rem;
+  font-family:var(--sans);font-size:.82rem;color:var(--text);
+  outline:none;transition:var(--tr);
+}
+.agent-input:focus{border-color:var(--cyan);box-shadow:0 0 0 2px var(--cyan-dim)}
+.agent-input::placeholder{color:var(--text3)}
+.agent-send{
+  background:linear-gradient(135deg,var(--cyan),#0088cc);
+  color:#000;border:none;border-radius:var(--r);
+  padding:.5rem 1.2rem;font-family:var(--mono);
+  font-weight:600;font-size:.8rem;cursor:pointer;
+  transition:var(--tr);
+}
+.agent-send:hover{box-shadow:0 0 16px rgba(0,212,255,.3)}
+
+/* Report */
+.report-block{margin-bottom:1.2rem}
+.report-title{font-family:var(--mono);font-weight:700;font-size:1rem;color:var(--cyan);margin-bottom:.6rem;padding-bottom:.4rem;border-bottom:1px solid var(--border)}
+.report-table{width:100%;border-collapse:collapse;font-size:.8rem}
+.report-table th{background:var(--bg4);padding:.5rem .6rem;text-align:left;font-weight:600;color:var(--text2);border:1px solid var(--border)}
+.report-table td{padding:.4rem .6rem;border:1px solid var(--border);color:var(--text)}
+.report-table tr:nth-child(even){background:var(--bg3)}
+.score-ring{
+  width:120px;height:120px;position:relative;
+  display:flex;align-items:center;justify-content:center;margin:0 auto;
+}
+.score-ring svg{position:absolute;inset:0;transform:rotate(-90deg)}
+.score-ring .score-text{
+  font-family:var(--mono);font-size:2rem;font-weight:700;
+  z-index:1;
+}
+
+/* Buttons */
+.btn{
+  display:inline-flex;align-items:center;gap:.4rem;
+  padding:.45rem 1rem;border:1px solid var(--border2);
+  border-radius:var(--r);background:var(--bg3);color:var(--text2);
+  font-family:var(--sans);font-size:.8rem;font-weight:500;
+  cursor:pointer;transition:var(--tr);
+}
+.btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.btn-cyan{background:linear-gradient(135deg,var(--cyan),#0088cc);color:#000;border-color:transparent;font-weight:600}
+.btn-cyan:hover{box-shadow:0 0 16px rgba(0,212,255,.3);color:#000}
+.btn-sm{padding:.3rem .7rem;font-size:.74rem}
+
+/* Tags */
+.tag{
+  display:inline-flex;align-items:center;gap:.25rem;
+  padding:.15rem .5rem;border-radius:4px;
+  font-family:var(--mono);font-size:.68rem;font-weight:600;
+}
+.tag.ok{background:var(--green-dim);color:var(--green)}
+.tag.warn{background:var(--amber-dim);color:var(--amber)}
+.tag.err{background:var(--red-dim);color:var(--red)}
+.tag.cyan{background:var(--cyan-dim);color:var(--cyan)}
+
+/* Spectrum display */
+.spectrum-info{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem;
+  margin-top:.6rem;
+}
+.spectrum-stat{
+  background:var(--bg3);border-radius:var(--r);padding:.5rem .7rem;
+  text-align:center;
+}
+.spectrum-stat .label{font-size:.68rem;color:var(--text3);margin-bottom:.2rem}
+.spectrum-stat .value{font-family:var(--mono);font-size:1.1rem;font-weight:700}
+
+/* Responsive */
+@media(max-width:1200px){.g4{grid-template-columns:repeat(2,1fr)}.g21,.g12{grid-template-columns:1fr}}
+@media(max-width:768px){
+  .g4,.g3,.g2{grid-template-columns:1fr}
+  .eq-item{grid-template-columns:30px 1fr 60px 60px}
+  .eq-header{grid-template-columns:30px 1fr 60px 60px}
+  .content{padding:.8rem}.header{padding:0 1rem}
+}
+
+/* Animation */
+.fade-in{animation:fadeIn .4s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* Loading dots */
+.dots::after{content:'';animation:dots 1.5s infinite}
+@keyframes dots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
+
+/* Health bar */
+.health-bar{height:6px;background:var(--bg);border-radius:3px;overflow:hidden;margin-top:.3rem}
+.health-bar-fill{height:100%;border-radius:3px;transition:width .6s ease}
+.health-bar-fill.green{background:linear-gradient(90deg,var(--green),#00c853)}
+.health-bar-fill.amber{background:linear-gradient(90deg,var(--amber),#ff8f00)}
+.health-bar-fill.red{background:linear-gradient(90deg,var(--red),#d50000)}
+
+/* Watermark effect */
+.watermark{
+  position:fixed;bottom:1rem;right:1.6rem;
+  font-family:var(--mono);font-size:.65rem;color:var(--text3);
+  opacity:.4;
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">
+    <div class="logo-icon">CA</div>
+    <span class="logo-text">CA6500 Monitor</span>
+    <span class="logo-sub">工程设备在线监测数据分析 Agent</span>
+  </div>
+  <div class="header-status">
+    <div class="status-pill live"><span class="dot"></span>实时监测中</div>
+    <div class="header-time" id="headerTime"></div>
+  </div>
+</header>
+
+<nav class="nav" id="nav">
+  <div class="nav-item active" data-page="dashboard">📊 总览</div>
+  <div class="nav-item" data-page="monitor">📡 实时监测</div>
+  <div class="nav-item" data-page="spectrum">📈 频谱分析</div>
+  <div class="nav-item" data-page="trend">📉 趋势分析</div>
+  <div class="nav-item" data-page="agent">🤖 故障诊断 Agent <span class="badge warn" id="agentBadge">2</span></div>
+  <div class="nav-item" data-page="report">📋 健康评估</div>
+</nav>
+
+<div class="content">
+
+  <!-- DASHBOARD -->
+  <div class="page active" id="page-dashboard">
+    <div class="g4 fade-in" id="statCards"></div>
+    <div class="g21 fade-in" style="margin-top:.8rem">
+      <div class="card">
+        <div class="card-h">
+          <div class="card-t"><span class="icon">🏭</span> 设备运行状态</div>
+          <span class="tag ok">系统正常</span>
+        </div>
+        <div class="card-body">
+          <div class="eq-header">
+            <span></span><span>设备名称</span><span>健康度</span><span>振动(mm/s)</span><span>压力(bar)</span><span>噪音(dB)</span><span>状态</span>
+          </div>
+          <div class="eq-list" id="eqList"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><div class="card-t"><span class="icon">⚠️</span> 告警事件</div></div>
+        <div class="card-body" id="alarmList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REAL-TIME MONITOR -->
+  <div class="page" id="page-monitor">
+    <div class="g2 fade-in">
+      <div class="card">
+        <div class="card-h"><div class="card-t"><span class="icon">📳</span> 振动波形 (阀体振动)</div>
+          <select id="vibEqSel" style="background:var(--bg);color:var(--text);border:1px solid var(--border2);border-radius:4px;padding:.2rem .5rem;font-size:.76rem"></select>
+        </div>
+        <div class="card-body"><div class="chart-wrap"><canvas id="vibWaveCanvas" height="200"></canvas></div></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><div class="card-t"><span class="icon">🔵</span> 压力脉动</div></div>
+        <div class="card-body"><div class="chart-wrap"><canvas id="pressCanvas" height="200"></canvas></div></div>
+      </div>
+    </div>
+    <div class="g2 fade-in" style="margin-top:.8rem">
+      <div class="card">
+        <div class="card-h"><div class="card-t"><span class="icon">🔊</span> 噪音监测</div></div>
+        <div class="card-body"><div class="chart-wrap"><canvas id="noiseCanvas" height="200"></canvas></div></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><div class="card-t"><span class="icon">🌡️</span> 多参数实时仪表</div></div>
+        <div class="card-body" id="gaugePanel"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SPECTRUM -->
+  <div class="page" id="page-spectrum">
+    <div class="g21 fade-in">
+      <div class="card">
+        <div class="card-h"><div class="card-t"><span class="icon">📊</span> 频谱图 (FFT)</div>
+          <div style="display:flex;gap:.4rem">
+            <select id="specEqSel" style="background:var(--bg);color:var(--text);border:1px solid var(--border2);border-radius:4px;padding:.2rem .5rem;font-size:.76rem"></select>
+            <button class="btn btn-sm" onclick="refreshSpectrum()">刷新</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="chart-wrap"><canvas id="specCanvas" height="260"></canvas></div>
+          <div class="spectrum-info" id="specInfo"></div>
+        </div>
+      </div>
+      <div>
+        <div class="card" style="margin-bottom:.8rem">
+          <div class="card-h"><div class="card-t"><span class="icon">🌊</span> 频谱瀑布图</div></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="waterfallCanvas" height="200"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><div class="card-t"><span class="icon">📐</span> 特征值</div></div>
+          <div class="card-body" id="featureVals"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TREND -->
+  <div class="page" id="page-trend">
+    <div class="card fade-in">
+      <div class="card-h">
+        <div class="card-t"><span class="icon">📉</span> 历史趋势分析</div>
+        <div style="display:flex;gap:.4rem">
+          <select id="trendParam" style="background:var(--bg);color:var(--text);border:1px solid var(--border2);border-radius:4px;padding:.2rem .5rem;font-size:.76rem">
+            <option value="vib">振动</option><option value="press">压力脉动</option><option value="noise">噪音</option>
+          </select>
+          <select id="trendRange" style="background:var(--bg);color:var(--text);border:1px solid var(--border2);border-radius:4px;padding:.2rem .5rem;font-size:.76rem">
+            <option value="1h">近1小时</option><option value="24h" selected>近24小时</option><option value="7d">近7天</option>
+          </select>
+          <button class="btn btn-sm" onclick="refreshTrend()">刷新</button>
+        </div>
+      </div>
+      <div class="card-body"><div class="chart-wrap"><canvas id="trendCanvas" height="280"></canvas></div></div>
+    </div>
+    <div class="g3 fade-in" style="margin-top:.8rem">
+      <div class="card"><div class="card-h"><div class="card-t">振动趋势</div></div><div class="card-body"><div class="chart-wrap"><canvas id="trendVibMini" height="140"></canvas></div></div></div>
+      <div class="card"><div class="card-h"><div class="card-t">压力趋势</div></div><div class="card-body"><div class="chart-wrap"><canvas id="trendPressMini" height="140"></canvas></div></div></div>
+      <div class="card"><div class="card-h"><div class="card-t">噪音趋势</div></div><div class="card-body"><div class="chart-wrap"><canvas id="trendNoiseMini" height="140"></canvas></div></div></div>
+    </div>
+  </div>
+
+  <!-- AGENT -->
+  <div class="page" id="page-agent">
+    <div class="g21 fade-in">
+      <div class="card" style="display:flex;flex-direction:column;max-height:calc(100vh - 160px)">
+        <div class="card-h"><div class="card-t"><span class="icon">🤖</span> 故障诊断 Agent</div>
+          <div style="display:flex;gap:.4rem">
+            <button class="btn btn-sm btn-cyan" onclick="runAutoDiagnosis()">🔍 自动诊断</button>
+            <button class="btn btn-sm" onclick="clearAgent()">清空</button>
+          </div>
+        </div>
+        <div class="card-body agent-panel" id="agentChat" style="flex:1;overflow-y:auto"></div>
+        <div class="agent-input-wrap">
+          <input class="agent-input" id="agentInput" placeholder="输入诊断指令，如：分析阀门V-001的振动异常原因..." onkeydown="if(event.key==='Enter')sendAgentMsg()">
+          <button class="agent-send" onclick="sendAgentMsg()">发送</button>
+        </div>
+      </div>
+      <div>
+        <div class="card" style="margin-bottom:.8rem">
+          <div class="card-h"><div class="card-t"><span class="icon">🏥</span> 设备健康评分</div></div>
+          <div class="card-body" id="healthScores"></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><div class="card-t"><span class="icon">📚</span> 故障知识库</div></div>
+          <div class="card-body" id="faultKB"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REPORT -->
+  <div class="page" id="page-report">
+    <div class="card fade-in">
+      <div class="card-h">
+        <div class="card-t"><span class="icon">📋</span> 设备健康评估报告</div>
+        <div style="display:flex;gap:.4rem">
+          <button class="btn btn-sm btn-cyan" onclick="generateReport()">生成报告</button>
+          <button class="btn btn-sm" onclick="exportReport()">导出</button>
+        </div>
+      </div>
+      <div class="card-body" id="reportContent">
+        <div style="text-align:center;padding:3rem;color:var(--text3)">
+          <div style="font-size:2.5rem;margin-bottom:.8rem">📋</div>
+          <div>点击「生成报告」按钮，Agent 将自动分析所有监测数据并生成健康评估报告</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="watermark">CA6500 Online Monitoring Agent v3.0 | Data Analysis Platform</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// EQUIPMENT DATA MODEL
+// ═══════════════════════════════════════════════
+const EQUIPMENT = [
+  {id:'V-001',name:'1#调流阀',type:'调流阀',health:92,status:'ok',
+   vib:{val:2.8,rms:2.1,peak:4.2,unit:'mm/s'},press:{in:3.2,out:2.8,unit:'bar'},noise:{val:72,unit:'dB'},
+   vibHistory:[],pressHistory:[],noiseHistory:[],specData:[],alarms:[]},
+  {id:'V-002',name:'2#调流阀',type:'调流阀',health:78,status:'warn',
+   vib:{val:4.5,rms:3.8,peak:7.1,unit:'mm/s'},press:{in:3.1,out:2.5,unit:'bar'},noise:{val:78,unit:'dB'},
+   vibHistory:[],pressHistory:[],noiseHistory:[],specData:[],alarms:[
+     {time:'14:23:05',level:'warn',msg:'振动有效值超过预警阈值 (4.5 > 4.0 mm/s)'},
+     {time:'14:18:32',level:'warn',msg:'噪音值偏高 (78 dB)'}
+   ]},
+  {id:'V-003',name:'3#调流阀',type:'调流阀',health:96,status:'ok',
+   vib:{val:1.9,rms:1.5,peak:3.0,unit:'mm/s'},press:{in:3.3,out:3.0,unit:'bar'},noise:{val:68,unit:'dB'},
+   vibHistory:[],pressHistory:[],noiseHistory:[],specData:[],alarms:[]},
+  {id:'V-004',name:'4#蝶阀',type:'蝶阀',health:45,status:'err',
+   vib:{val:8.2,rms:6.9,peak:14.5,unit:'mm/s'},press:{in:3.0,out:1.8,unit:'bar'},noise:{val:89,unit:'dB'},
+   vibHistory:[],pressHistory:[],noiseHistory:[],specData:[],alarms:[
+     {time:'14:25:18',level:'err',msg:'振动严重超标！(8.2 > 7.0 mm/s 危险阈值)'},
+     {time:'14:24:01',level:'err',msg:'压力损失异常 (ΔP=1.2 bar，正常<0.5)'},
+     {time:'14:22:45',level:'warn',msg:'噪音超过报警阈值 (89 dB)'}
+   ]},
+  {id:'V-005',name:'5#闸阀',type:'闸阀',health:88,status:'ok',
+   vib:{val:2.2,rms:1.8,peak:3.5,unit:'mm/s'},press:{in:3.4,out:3.1,unit:'bar'},noise:{val:65,unit:'dB'},
+   vibHistory:[],pressHistory:[],noiseHistory:[],specData:[],alarms:[]},
+  {id:'V-006',name:'6#止回阀',type:'止回阀',health:85,status:'ok',
+   vib:{val:2.5,rms:2.0,peak:4.0,unit:'mm/s'},press:{in:3.2,out:2.9,unit:'bar'},noise:{val:70,unit:'dB'},
+   vibHistory:[],pressHistory:[],noiseHistory:[],specData:[],alarms:[]},
+];
+
+// Thresholds
+const THRESHOLDS = {
+  vib:{warn:4.0,err:7.0},
+  press:{warn:0.5,err:1.0}, // delta
+  noise:{warn:80,err:90}
+};
+
+// ═══════════════════════════════════════════════
+// DATA GENERATION
+// ═══════════════════════════════════════════════
+function initData(){
+  EQUIPMENT.forEach(eq=>{
+    for(let i=0;i<200;i++){
+      eq.vibHistory.push(genVal(eq.vib.val,0.3));
+      eq.pressHistory.push(genVal(eq.press.in,0.1));
+      eq.noiseHistory.push(genVal(eq.noise.val,2));
+    }
+    eq.specData=genSpectrum(eq);
+  });
+}
+
+function genVal(base,noise){return base+(Math.random()-0.5)*noise*2}
+
+function genSpectrum(eq){
+  const data=[];
+  const baseAmp=eq.status==='err'?1.5:eq.status==='warn'?0.8:0.4;
+  for(let f=0;f<500;f+=2){
+    let amp=baseAmp*Math.exp(-f/200)*Math.random()*0.5;
+    // Add characteristic frequencies
+    if(Math.abs(f-50)<6)amp+=baseAmp*2.5*(1+Math.random()*0.2); // 1x
+    if(Math.abs(f-100)<6)amp+=baseAmp*1.8*(1+Math.random()*0.2); // 2x
+    if(Math.abs(f-150)<6)amp+=baseAmp*0.6; // 3x
+    if(eq.status==='err'&&Math.abs(f-25)<4)amp+=baseAmp*1.2; // sub-harmonic
+    if(eq.status==='err'&&Math.abs(f-350)<8)amp+=baseAmp*0.8; // high freq
+    data.push({f,amp:Math.max(0,amp)});
+  }
+  return data;
+}
+
+function updateLiveData(){
+  EQUIPMENT.forEach(eq=>{
+    eq.vibHistory.shift();eq.vibHistory.push(genVal(eq.vib.val,0.3));
+    eq.pressHistory.shift();eq.pressHistory.push(genVal(eq.press.in,0.1));
+    eq.noiseHistory.shift();eq.noiseHistory.push(genVal(eq.noise.val,2));
+    // Slowly drift values
+    eq.vib.val=Math.max(0.5,eq.vib.val+(Math.random()-0.5)*0.1);
+    eq.press.in=eq.press.in+(Math.random()-0.5)*0.05;
+    eq.noise.val=eq.noise.val+(Math.random()-0.5)*0.5;
+    eq.specData=genSpectrum(eq);
+    // Update status
+    if(eq.vib.val>THRESHOLDS.vib.err){eq.status='err';eq.health=Math.max(20,eq.health-1)}
+    else if(eq.vib.val>THRESHOLDS.vib.warn){eq.status='warn';eq.health=Math.max(40,eq.health-0.5)}
+    else{eq.status='ok';eq.health=Math.min(100,eq.health+0.1)}
+    eq.health=Math.round(eq.health*10)/10;
+  });
+}
+
+// ═══════════════════════════════════════════════
+// CHART DRAWING
+// ═══════════════════════════════════════════════
+function drawWave(canvasId,data,color='#00d4ff',maxY=null,minY=null){
+  const canvas=document.getElementById(canvasId);
+  if(!canvas)return;
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width=canvas.offsetWidth*2;
+  const H=canvas.height=canvas.offsetHeight*2;
+  ctx.clearRect(0,0,W,H);
+  // Grid
+  ctx.strokeStyle='rgba(30,42,58,.6)';ctx.lineWidth=1;
+  for(let y=0;y<H;y+=H/8){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+  for(let x=0;x<W;x+=W/10){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
+  if(!data||!data.length)return;
+  const max=maxY||Math.max(...data)*1.2;
+  const min=minY||Math.min(...data)*0.8;
+  const range=max-min||1;
+  // Waveform
+  ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=2;
+  data.forEach((v,i)=>{
+    const x=i/(data.length-1)*W;
+    const y=H-(v-min)/range*H*0.85-H*0.05;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+  // Glow
+  ctx.strokeStyle=color.replace(')',',0.15)').replace('rgb','rgba');
+  ctx.lineWidth=8;
+  ctx.beginPath();
+  data.forEach((v,i)=>{
+    const x=i/(data.length-1)*W;
+    const y=H-(v-min)/range*H*0.85-H*0.05;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+}
+
+function drawSpectrum(canvasId,data,color='#00d4ff'){
+  const canvas=document.getElementById(canvasId);
+  if(!canvas)return;
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width=canvas.offsetWidth*2;
+  const H=canvas.height=canvas.offsetHeight*2;
+  ctx.clearRect(0,0,W,H);
+  // Grid
+  ctx.strokeStyle='rgba(30,42,58,.6)';ctx.lineWidth=1;
+  for(let y=0;y<H;y+=H/6){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+  if(!data||!data.length)return;
+  const maxAmp=Math.max(...data.map(d=>d.amp))*1.3||1;
+  const bw=W/data.length;
+  // Bars
+  data.forEach((d,i)=>{
+    const x=i*bw;
+    const h=d.amp/maxAmp*H*0.9;
+    const gradient=ctx.createLinearGradient(0,H-h,0,H);
+    gradient.addColorStop(0,color);
+    gradient.addColorStop(1,color.replace(')',',0.2)').replace('#','#'));
+    ctx.fillStyle=gradient;
+    ctx.fillRect(x+1,H-h,bw-2,h);
+  });
+  // Axis labels
+  ctx.fillStyle='rgba(136,153,170,.6)';ctx.font='18px JetBrains Mono';
+  const maxF=data[data.length-1]?.f||500;
+  for(let f=0;f<=maxF;f+=100){
+    const x=f/maxF*W;
+    ctx.fillText(f+'Hz',x,H-8);
+  }
+}
+
+function drawWaterfall(canvasId,historyData){
+  const canvas=document.getElementById(canvasId);
+  if(!canvas)return;
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width=canvas.offsetWidth*2;
+  const H=canvas.height=canvas.offsetHeight*2;
+  ctx.clearRect(0,0,W,H);
+  const rows=Math.min(historyData.length,15);
+  const rowH=H/rows;
+  for(let r=0;r<rows;r++){
+    const data=historyData[r]||[];
+    const maxAmp=Math.max(...data.map(d=>d.amp),0.1);
+    const y0=r*rowH;
+    data.forEach((d,i)=>{
+      const x=i/(data.length||1)*W;
+      const intensity=d.amp/maxAmp;
+      const red=Math.round(intensity*0);const green=Math.round(intensity*212);const blue=Math.round(intensity*255);
+      ctx.fillStyle=`rgba(${red},${green},${blue},${intensity*0.8+0.1})`;
+      ctx.fillRect(x,y0,W/data.length,rowH);
+    });
+  }
+  ctx.fillStyle='rgba(136,153,170,.5)';ctx.font='16px JetBrains Mono';
+  ctx.fillText('时间 →',8,H-8);ctx.fillText('频率 →',8,20);
+}
+
+function drawTrend(canvasId,data,color='#00d4ff',label='',warnThresh=null,errThresh=null){
+  const canvas=document.getElementById(canvasId);
+  if(!canvas)return;
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width=canvas.offsetWidth*2;
+  const H=canvas.height=canvas.offsetHeight*2;
+  ctx.clearRect(0,0,W,H);
+  // Grid
+  ctx.strokeStyle='rgba(30,42,58,.5)';ctx.lineWidth=1;
+  for(let y=0;y<H;y+=H/6){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+  if(!data||!data.length)return;
+  const max=Math.max(...data,warnThresh||0)*1.3;
+  const min=Math.min(...data)*0.7;
+  const range=max-min||1;
+  // Threshold lines
+  if(warnThresh){
+    const y=H-(warnThresh-min)/range*H*0.85-H*0.05;
+    ctx.strokeStyle='rgba(255,171,0,.4)';ctx.lineWidth=2;ctx.setLineDash([8,4]);
+    ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='rgba(255,171,0,.6)';ctx.font='16px JetBrains Mono';ctx.fillText('预警',W-50,y-6);
+  }
+  if(errThresh){
+    const y=H-(errThresh-min)/range*H*0.85-H*0.05;
+    ctx.strokeStyle='rgba(255,23,68,.4)';ctx.lineWidth=2;ctx.setLineDash([8,4]);
+    ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='rgba(255,23,68,.6)';ctx.font='16px JetBrains Mono';ctx.fillText('危险',W-50,y-6);
+  }
+  // Fill area
+  ctx.beginPath();
+  data.forEach((v,i)=>{
+    const x=i/(data.length-1)*W;
+    const y=H-(v-min)/range*H*0.85-H*0.05;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();
+  const grad=ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,color.replace(')',',0.2)').replace('rgb','rgba').replace('#00d4ff','rgba(0,212,255,0.2)'));
+  grad.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=grad;ctx.fill();
+  // Line
+  ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=2.5;
+  data.forEach((v,i)=>{
+    const x=i/(data.length-1)*W;
+    const y=H-(v-min)/range*H*0.85-H*0.05;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+  // Label
+  ctx.fillStyle='rgba(136,153,170,.6)';ctx.font='18px JetBrains Mono';
+  ctx.fillText(label,10,24);
+}
+
+function drawGauge(canvas,value,max,label,color){
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width=canvas.offsetWidth*2;
+  const H=canvas.height=canvas.offsetHeight*2;
+  ctx.clearRect(0,0,W,H);
+  const cx=W/2,cy=H*0.55,r=Math.min(W,H)*0.38;
+  const pct=Math.min(value/max,1);
+  // Background arc
+  ctx.beginPath();ctx.arc(cx,cy,r,Math.PI*0.8,Math.PI*2.2);ctx.strokeStyle='rgba(30,42,58,.6)';ctx.lineWidth=12;ctx.lineCap='round';ctx.stroke();
+  // Value arc
+  ctx.beginPath();ctx.arc(cx,cy,r,Math.PI*0.8,Math.PI*0.8+pct*Math.PI*1.4);ctx.strokeStyle=color;ctx.lineWidth=12;ctx.lineCap='round';ctx.stroke();
+  // Text
+  ctx.fillStyle=color;ctx.font='bold 28px JetBrains Mono';ctx.textAlign='center';
+  ctx.fillText(value.toFixed(1),cx,cy+4);
+  ctx.fillStyle='rgba(136,153,170,.6)';ctx.font='16px Noto Sans SC';
+  ctx.fillText(label,cx,cy+28);
+}
+
+// ═══════════════════════════════════════════════
+// RENDER DASHBOARD
+// ═══════════════════════════════════════════════
+function renderDashboard(){
+  const okCount=EQUIPMENT.filter(e=>e.status==='ok').length;
+  const warnCount=EQUIPMENT.filter(e=>e.status==='warn').length;
+  const errCount=EQUIPMENT.filter(e=>e.status==='err').length;
+  const avgHealth=Math.round(EQUIPMENT.reduce((s,e)=>s+e.health,0)/EQUIPMENT.length);
+  $id('statCards').innerHTML=`
+    <div class="stat cyan"><div class="stat-label">监测设备总数</div><div class="stat-val cyan">${EQUIPMENT.length}</div><div class="stat-sub">套在线运行</div></div>
+    <div class="stat green"><div class="stat-label">正常运行</div><div class="stat-val green">${okCount}</div><div class="stat-trend up">↑ 系统稳定</div></div>
+    <div class="stat ${warnCount?'amber':'green'}"><div class="stat-label">预警设备</div><div class="stat-val ${warnCount?'amber':'green'}">${warnCount}</div><div class="stat-sub">${warnCount?'需要关注':'无预警'}</div></div>
+    <div class="stat ${errCount?'red':'green'}"><div class="stat-label">平均健康度</div><div class="stat-val ${avgHealth>80?'green':avgHealth>60?'amber':'red'}">${avgHealth}%</div><div class="health-bar"><div class="health-bar-fill ${avgHealth>80?'green':avgHealth>60?'amber':'red'}" style="width:${avgHealth}%"></div></div></div>
+  `;
+  // Equipment list
+  $id('eqList').innerHTML=EQUIPMENT.map(eq=>`
+    <div class="eq-item" onclick="selectEquipment('${eq.id}')">
+      <div class="eq-status ${eq.status}"></div>
+      <div><div class="eq-name">${eq.name}</div><div class="eq-id">${eq.id} | ${eq.type}</div></div>
+      <div style="text-align:center"><div class="health-bar" style="width:80px;margin:0 auto"><div class="health-bar-fill ${eq.health>80?'green':eq.health>60?'amber':'red'}" style="width:${eq.health}%"></div></div><span style="font-family:var(--mono);font-size:.72rem;color:var(--text2)">${eq.health}%</span></div>
+      <div class="eq-val ${eq.vib.val>THRESHOLDS.vib.err?'red':eq.vib.val>THRESHOLDS.vib.warn?'amber':'cyan'}">${eq.vib.val.toFixed(1)}</div>
+      <div class="eq-val cyan">${eq.press.in.toFixed(1)}</div>
+      <div class="eq-val ${eq.noise.val>THRESHOLDS.noise.err?'red':eq.noise.val>THRESHOLDS.noise.warn?'amber':'cyan'}">${eq.noise.val.toFixed(0)}</div>
+      <div><span class="tag ${eq.status}">${eq.status==='ok'?'正常':eq.status==='warn'?'预警':'故障'}</span></div>
+    </div>
+  `).join('');
+  // Alarms
+  const allAlarms=EQUIPMENT.flatMap(eq=>eq.alarms.map(a=>({...a,eq:eq.name,id:eq.id}))).sort((a,b)=>b.time>a.time?1:-1);
+  $id('alarmList').innerHTML=allAlarms.length?allAlarms.map(a=>`
+    <div style="padding:.5rem .6rem;background:var(--${a.level==='err'?'red':'amber'}-dim);border-radius:var(--r);margin-bottom:.4rem;border-left:3px solid var(--${a.level==='err'?'red':'amber'})">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-weight:600;font-size:.82rem;color:var(--${a.level==='err'?'red':'amber'})">${a.id} ${a.eq}</span>
+        <span style="font-family:var(--mono);font-size:.7rem;color:var(--text3)">${a.time}</span>
+      </div>
+      <div style="font-size:.78rem;color:var(--text2);margin-top:.2rem">${a.msg}</div>
+    </div>
+  `).join(''):'<div style="text-align:center;padding:2rem;color:var(--text3)">无告警事件</div>';
+  // Agent badge
+  const alarmCount=allAlarms.filter(a=>a.level==='err').length;
+  const badge=$id('agentBadge');
+  if(badge){badge.textContent=alarmCount||'';badge.className='badge '+(alarmCount?'err':'')}
+}
+
+// ═══════════════════════════════════════════════
+// RENDER MONITOR PAGE
+// ═══════════════════════════════════════════════
+function renderMonitor(){
+  const eq=EQUIPMENT[0];
+  drawWave('vibWaveCanvas',eq.vibHistory.slice(-150),'#00d4ff');
+  drawWave('pressCanvas',eq.pressHistory.slice(-150),'#b388ff');
+  drawWave('noiseCanvas',eq.noiseHistory.slice(-150),'#00e676');
+  // Gauges
+  const gp=$id('gaugePanel');
+  if(gp){
+    gp.innerHTML='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem">'+
+      '<div class="chart-wrap" style="height:120px"><canvas id="gVib" style="height:120px"></canvas></div>'+
+      '<div class="chart-wrap" style="height:120px"><canvas id="gPress" style="height:120px"></canvas></div>'+
+      '<div class="chart-wrap" style="height:120px"><canvas id="gNoise" style="height:120px"></canvas></div></div>';
+    setTimeout(()=>{
+      const e=EQUIPMENT[0];
+      drawGauge($id('gVib'),e.vib.val,10,'振动 mm/s',e.vib.val>4?'#ff1744':'#00d4ff');
+      drawGauge($id('gPress'),e.press.in,5,'压力 bar','#b388ff');
+      drawGauge($id('gNoise'),e.noise.val,100,'噪音 dB',e.noise.val>80?'#ffab00':'#00e676');
+    },50);
+  }
+  // Fill equipment selectors
+  fillEqSel('vibEqSel');
+}
+
+function fillEqSel(id){
+  const sel=$id(id);
+  if(!sel)return;
+  sel.innerHTML=EQUIPMENT.map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
+}
+
+function selectEquipment(eqId){
+  const idx=EQUIPMENT.findIndex(e=>e.id===eqId);
+  if(idx<0)return;
+  // Switch to monitor page
+  switchPage('monitor');
+  $id('vibEqSel').value=eqId;
+}
+
+// ═══════════════════════════════════════════════
+// RENDER SPECTRUM
+// ═══════════════════════════════════════════════
+function renderSpectrum(){
+  fillEqSel('specEqSel');
+  refreshSpectrum();
+}
+
+function refreshSpectrum(){
+  const eqId=$id('specEqSel')?.value||EQUIPMENT[0].id;
+  const eq=EQUIPMENT.find(e=>e.id===eqId)||EQUIPMENT[0];
+  drawSpectrum('specCanvas',eq.specData,eq.status==='err'?'#ff1744':eq.status==='warn'?'#ffab00':'#00d4ff');
+  // Waterfall
+  const wfData=[];
+  for(let i=0;i<15;i++)wfData.push(genSpectrum(eq));
+  drawWaterfall('waterfallCanvas',wfData);
+  // Spectrum info
+  const maxAmp=Math.max(...eq.specData.map(d=>d.amp));
+  const peakFreq=eq.specData.reduce((best,d)=>d.amp>best.amp?d:best,{f:0,amp:0});
+  const rms=Math.sqrt(eq.specData.reduce((s,d)=>s+d.amp*d.amp,0)/eq.specData.length);
+  $id('specInfo').innerHTML=`
+    <div class="spectrum-stat"><div class="label">通频值</div><div class="value" style="color:var(--cyan)">${(maxAmp*10).toFixed(2)} mm/s</div></div>
+    <div class="spectrum-stat"><div class="label">主频率</div><div class="value" style="color:var(--amber)">${peakFreq.f} Hz</div></div>
+    <div class="spectrum-stat"><div class="label">RMS</div><div class="value" style="color:var(--green)">${(rms*10).toFixed(2)} mm/s</div></div>
+  `;
+  // Feature values
+  const features=[
+    {name:'有效值 (RMS)',val:(eq.vib.rms).toFixed(2)+' mm/s',status:eq.vib.rms>4?'err':eq.vib.rms>3?'warn':'ok'},
+    {name:'峰值 (Peak)',val:(eq.vib.peak).toFixed(2)+' mm/s',status:eq.vib.peak>7?'err':'ok'},
+    {name:'峰峰值 (P-P)',val:(eq.vib.peak*2).toFixed(2)+' mm/s',status:'ok'},
+    {name:'1×幅值',val:(peakFreq.amp*10).toFixed(2)+' mm/s',status:peakFreq.amp>1?'warn':'ok'},
+    {name:'1×相位',val:(Math.random()*360).toFixed(1)+'°',status:'ok'},
+    {name:'2×幅值',val:(maxAmp*5).toFixed(2)+' mm/s',status:'ok'},
+    {name:'波峰因数',val:(eq.vib.peak/eq.vib.rms).toFixed(2),status:'ok'},
+    {name:'峭度',val:(3+Math.random()*2).toFixed(2),status:'ok'},
+  ];
+  $id('featureVals').innerHTML=`<table class="report-table">${features.map(f=>`<tr><td>${f.name}</td><td style="font-family:var(--mono);text-align:right">${f.val}</td><td><span class="tag ${f.status}">${f.status==='ok'?'正常':f.status==='warn'?'关注':'异常'}</span></td></tr>`).join('')}</table>`;
+}
+
+// ═══════════════════════════════════════════════
+// RENDER TREND
+// ═══════════════════════════════════════════════
+function renderTrend(){refreshTrend()}
+
+function refreshTrend(){
+  const eq=EQUIPMENT[1]; // V-002 as example
+  drawTrend('trendCanvas',eq.vibHistory,'#00d4ff','振动趋势 (V-002)',THRESHOLDS.vib.warn,THRESHOLDS.vib.err);
+  drawTrend('trendVibMini',EQUIPMENT[0].vibHistory,'#00d4ff','V-001 振动');
+  drawTrend('trendPressMini',EQUIPMENT[0].pressHistory,'#b388ff','V-001 压力');
+  drawTrend('trendNoiseMini',EQUIPMENT[0].noiseHistory,'#00e676','V-001 噪音');
+}
+
+// ═══════════════════════════════════════════════
+// AGENT
+// ═══════════════════════════════════════════════
+let agentMessages=[];
+const FAULT_KB=[
+  {symptom:'振动1×频幅值增大',cause:'转子不平衡',solution:'检查叶轮/阀芯是否有附着物或磨损，必要时做动平衡校正'},
+  {symptom:'振动2×频突出',cause:'对中不良',solution:'检查联轴器对中情况，重新对中校准'},
+  {symptom:'高频振动分量增大',cause:'轴承磨损',solution:'检查轴承状态，必要时更换轴承'},
+  {symptom:'亚谐波分量出现',cause:'油膜涡动/气蚀',solution:'检查润滑系统，调整运行工况避免气蚀'},
+  {symptom:'压力损失异常增大',cause:'阀门密封损坏或阀芯卡涩',solution:'检查阀门密封面和阀芯运动情况'},
+  {symptom:'噪音突然增大',cause:'气蚀或流体脉动',solution:'检查阀门开度和流体工况，调整运行参数'},
+];
+
+function renderAgent(){
+  const chat=$id('agentChat');
+  if(!agentMessages.length){
+    agentMessages=[{type:'system',tag:'SYSTEM',text:'故障诊断 Agent 已就绪。我将基于实时监测数据、频谱分析和历史趋势，为您进行设备健康诊断。<ul><li>输入设备编号和问题，如"分析V-004的振动异常"</li><li>点击「自动诊断」进行全设备扫描</li><li>支持自然语言查询</li></ul>'}];
+  }
+  renderAgentMsgs();
+  renderHealthScores();
+  renderFaultKB();
+}
+
+function renderAgentMsgs(){
+  const chat=$id('agentChat');
+  chat.innerHTML=agentMessages.map(m=>`<div class="agent-msg ${m.type}"><span class="msg-tag">${m.tag}</span>${m.text}</div>`).join('');
+  chat.scrollTop=chat.scrollHeight;
+}
+
+function addAgentMsg(type,tag,text){
+  agentMessages.push({type,tag,text});
+  renderAgentMsgs();
+}
+
+function clearAgent(){agentMessages=[];renderAgent()}
+
+function sendAgentMsg(){
+  const input=$id('agentInput');
+  const q=input.value.trim();if(!q)return;
+  input.value='';
+  addAgentMsg('system','USER',q);
+  // Simulate agent thinking
+  setTimeout(()=>{
+    processAgentQuery(q);
+  },500);
+}
+
+function processAgentQuery(q){
+  const lowerQ=q.toLowerCase();
+  // Find equipment mentioned
+  const eqMatch=EQUIPMENT.find(e=>lowerQ.includes(e.id.toLowerCase())||lowerQ.includes(e.name));
+  if(lowerQ.includes('诊断')||lowerQ.includes('分析')||lowerQ.includes('检查')){
+    if(eqMatch){diagnoseEquipment(eqMatch)}
+    else{addAgentMsg('system','AGENT','请指定设备编号，如"分析V-001"或"诊断4#蝶阀"');}
+  }else if(lowerQ.includes('振动')&&(lowerQ.includes('异常')||lowerQ.includes('原因'))){
+    if(eqMatch){diagnoseEquipment(eqMatch)}
+    else{addAgentMsg('reasoning','REASONING','正在分析所有设备的振动数据...');setTimeout(()=>diagnoseAll(),800)}
+  }else if(lowerQ.includes('趋势')||lowerQ.includes('变化')){
+    const eq=eqMatch||EQUIPMENT[0];
+    analyzeTrend(eq);
+  }else if(lowerQ.includes('频谱')||lowerQ.includes('频率')){
+    const eq=eqMatch||EQUIPMENT[0];
+    analyzeSpectrum(eq);
+  }else{
+    addAgentMsg('system','AGENT','我理解您的问题。请尝试以下指令：<ul><li>"分析V-001的振动" - 分析指定设备</li><li>"自动诊断" - 全设备扫描</li><li>"V-004频谱分析" - 频谱诊断</li><li>"趋势分析" - 历史趋势</li></ul>');
+  }
+}
+
+function runAutoDiagnosis(){
+  addAgentMsg('system','AGENT','🔍 启动全设备自动诊断...');
+  setTimeout(()=>{
+    addAgentMsg('data','DATA COLLECTOR','正在采集所有设备的实时监测数据...');
+    setTimeout(()=>{
+      addAgentMsg('reasoning','FEATURE EXTRACT','提取振动特征值：RMS、Peak、1×幅值、2×幅值、频谱能量分布...');
+      setTimeout(()=>{
+        diagnoseAll();
+      },600);
+    },500);
+  },300);
+}
+
+function diagnoseAll(){
+  const errEqs=EQUIPMENT.filter(e=>e.status==='err');
+  const warnEqs=EQUIPMENT.filter(e=>e.status==='warn');
+  const okEqs=EQUIPMENT.filter(e=>e.status==='ok');
+  if(errEqs.length){
+    errEqs.forEach(eq=>{
+      addAgentMsg('error','FAULT DETECTED','⚠️ <strong>'+eq.name+'('+eq.id+')</strong> 检测到严重异常！');
+      setTimeout(()=>diagnoseEquipment(eq),200);
+    });
+  }
+  if(warnEqs.length){
+    warnEqs.forEach(eq=>{
+      addAgentMsg('warning','WARNING','⚡ <strong>'+eq.name+'('+eq.id+')</strong> 运行参数偏高，建议关注。');
+      setTimeout(()=>diagnoseEquipment(eq),200);
+    });
+  }
+  setTimeout(()=>{
+    addAgentMsg('result','DIAGNOSIS SUMMARY',
+      '<strong>诊断完成</strong><ul>'+
+      '<li>正常设备：'+okEqs.length+'台</li>'+
+      '<li>预警设备：'+warnEqs.length+'台</li>'+
+      '<li>故障设备：'+errEqs.length+'台</li>'+
+      '<li>建议：'+(errEqs.length?'立即安排检修 '+errEqs.map(e=>e.name).join('、'):'系统运行正常，继续保持监测')+'</li></ul>'
+    );
+  },400);
+}
+
+function diagnoseEquipment(eq){
+  addAgentMsg('data','DATA','设备 '+eq.name+'('+eq.id+') 实时数据：振动 '+eq.vib.val.toFixed(1)+' mm/s | 压力 '+eq.press.in.toFixed(1)+' bar | 噪音 '+eq.noise.val.toFixed(0)+' dB | 健康度 '+eq.health+'%');
+  // Reasoning chain
+  addAgentMsg('reasoning','STEP 1: 阈值对比',
+    '振动有效值 '+eq.vib.val.toFixed(1)+' mm/s '+
+    (eq.vib.val>THRESHOLDS.vib.err?'<span style="color:var(--red)">超过危险阈值 '+THRESHOLDS.vib.err+'</span>':
+    eq.vib.val>THRESHOLDS.vib.warn?'<span style="color:var(--amber)">超过预警阈值 '+THRESHOLDS.vib.warn+'</span>':
+    '<span style="color:var(--green)">在正常范围内</span>')
+  );
+  addAgentMsg('reasoning','STEP 2: 频谱分析',
+    '频谱中 1× 频率分量'+(eq.status==='err'?'显著增大，伴有亚谐波分量，疑似存在转子不平衡和气蚀现象':'基本正常')+
+    '；2× 频率分量'+(eq.status==='err'?'偏高，提示可能存在对中问题':'在正常范围内')
+  );
+  addAgentMsg('reasoning','STEP 3: 趋势分析',
+    '近24小时振动趋势呈'+(eq.status==='err'?'明显上升':eq.status==='warn'?'缓慢上升':'平稳')+
+    '态势，'+(eq.status==='err'?'需要立即关注':'可继续监测')
+  );
+  // Result
+  if(eq.status==='err'){
+    addAgentMsg('error','DIAGNOSIS',
+      '<strong>诊断结论：'+eq.name+'('+eq.id+')</strong><ul>'+
+      '<li>主要故障：转子不平衡 + 气蚀（置信度 87%）</li>'+
+      '<li>次要故障：对中偏差（置信度 62%）</li>'+
+      '<li>建议措施：立即停机检查阀芯/叶轮，检查密封面磨损情况，必要时更换关键部件</li>'+
+      '<li>预计影响：如不处理，72小时内可能导致密封失效</li></ul>'
+    );
+  }else if(eq.status==='warn'){
+    addAgentMsg('warning','DIAGNOSIS',
+      '<strong>诊断结论：'+eq.name+'('+eq.id+')</strong><ul>'+
+      '<li>振动偏高，可能原因：轻微不平衡或轴承初期磨损</li>'+
+      '<li>建议：加强监测频率，安排下次停机时检修</li>'+
+      '<li>预计可继续运行：建议7天内安排检修</li></ul>'
+    );
+  }else{
+    addAgentMsg('result','DIAGNOSIS',
+      '<strong>'+eq.name+'('+eq.id+')</strong> 运行状态良好，各项指标在正常范围内。建议按常规周期继续监测。'
+    );
+  }
+}
+
+function analyzeTrend(eq){
+  const trend=eq.vibHistory.slice(-50);
+  const avg=trend.reduce((s,v)=>s+v,0)/trend.length;
+  const slope=(trend[trend.length-1]-trend[0])/trend.length;
+  addAgentMsg('data','TREND DATA',eq.name+' 近期振动均值: '+avg.toFixed(2)+' mm/s, 变化斜率: '+(slope>0?'+':'')+slope.toFixed(4)+' mm/s/点');
+  addAgentMsg('reasoning','TREND ANALYSIS',
+    slope>0.01?'趋势呈上升态势，振动在逐渐增大，建议密切关注。':
+    slope<-0.01?'趋势呈下降态势，设备状态在改善。':
+    '趋势平稳，设备运行稳定。'
+  );
+}
+
+function analyzeSpectrum(eq){
+  const peakFreq=eq.specData.reduce((best,d)=>d.amp>best.amp?d:best,{f:0,amp:0});
+  addAgentMsg('data','SPECTRUM DATA',eq.name+' 频谱主峰: '+peakFreq.f+' Hz, 幅值: '+(peakFreq.amp*10).toFixed(2)+' mm/s');
+  addAgentMsg('reasoning','SPECTRUM ANALYSIS',
+    peakFreq.f>=45&&peakFreq.f<=55?'主频率接近1×(50Hz)，提示可能存在转子不平衡。':
+    peakFreq.f>=95&&peakFreq.f<=105?'主频率接近2×(100Hz)，提示可能存在对中不良。':
+    '频谱特征需要结合运行工况进一步分析。'
+  );
+}
+
+function renderHealthScores(){
+  const el=$id('healthScores');
+  el.innerHTML=EQUIPMENT.map(eq=>{
+    const color=eq.health>80?'var(--green)':eq.health>60?'var(--amber)':'var(--red)';
+    return`<div style="display:flex;align-items:center;gap:.8rem;padding:.4rem 0;border-bottom:1px solid var(--border)">
+      <div style="width:8px;height:8px;border-radius:50%;background:${color};box-shadow:0 0 6px ${color}"></div>
+      <div style="flex:1"><div style="font-weight:600;font-size:.82rem">${eq.name}</div>
+        <div class="health-bar" style="margin-top:.3rem"><div class="health-bar-fill ${eq.health>80?'green':eq.health>60?'amber':'red'}" style="width:${eq.health}%"></div></div></div>
+      <div style="font-family:var(--mono);font-size:1.1rem;font-weight:700;color:${color}">${eq.health}%</div>
+    </div>`;
+  }).join('');
+}
+
+function renderFaultKB(){
+  const el=$id('faultKB');
+  el.innerHTML=FAULT_KB.map(f=>`
+    <div style="padding:.5rem .6rem;background:var(--bg3);border-radius:var(--r);margin-bottom:.4rem;border-left:3px solid var(--purple)">
+      <div style="font-weight:600;font-size:.8rem;color:var(--purple)">${f.symptom}</div>
+      <div style="font-size:.78rem;color:var(--text2);margin-top:.15rem">原因：${f.cause}</div>
+      <div style="font-size:.78rem;color:var(--green);margin-top:.1rem">建议：${f.solution}</div>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════
+// HEALTH REPORT
+// ═══════════════════════════════════════════════
+function generateReport(){
+  const el=$id('reportContent');
+  el.innerHTML='<div style="text-align:center;padding:2rem"><span class="dots" style="color:var(--cyan);font-family:var(--mono)">Agent 正在分析所有监测数据并生成报告</span></div>';
+  setTimeout(()=>{
+    const now=new Date().toLocaleString('zh-CN');
+    const avgHealth=Math.round(EQUIPMENT.reduce((s,e)=>s+e.health,0)/EQUIPMENT.length);
+    const errEqs=EQUIPMENT.filter(e=>e.status==='err');
+    const warnEqs=EQUIPMENT.filter(e=>e.status==='warn');
+    el.innerHTML=`
+      <div class="report-block">
+        <div class="report-title">一、报告概览</div>
+        <p style="font-size:.84rem;color:var(--text2);line-height:1.8">
+          报告时间：${now}<br>
+          监测设备：${EQUIPMENT.length} 套<br>
+          数据采集周期：2秒/次<br>
+          分析方法：时域分析 + FFT频谱分析 + 趋势分析 + AI故障诊断
+        </p>
+      </div>
+      <div class="report-block">
+        <div class="report-title">二、设备健康度评分</div>
+        <table class="report-table">
+          <thead><tr><th>设备</th><th>编号</th><th>类型</th><th>振动(mm/s)</th><th>压力(bar)</th><th>噪音(dB)</th><th>健康度</th><th>状态</th></tr></thead>
+          <tbody>${EQUIPMENT.map(eq=>`<tr>
+            <td>${eq.name}</td><td style="font-family:var(--mono)">${eq.id}</td><td>${eq.type}</td>
+            <td style="font-family:var(--mono);color:${eq.vib.val>4?'var(--red)':'var(--text)'}">${eq.vib.val.toFixed(1)}</td>
+            <td style="font-family:var(--mono)">${eq.press.in.toFixed(1)}</td>
+            <td style="font-family:var(--mono);color:${eq.noise.val>80?'var(--amber)':'var(--text)'}">${eq.noise.val.toFixed(0)}</td>
+            <td><div class="health-bar" style="width:60px;display:inline-block;vertical-align:middle"><div class="health-bar-fill ${eq.health>80?'green':eq.health>60?'amber':'red'}" style="width:${eq.health}%"></div></div> <span style="font-family:var(--mono)">${eq.health}%</span></td>
+            <td><span class="tag ${eq.status}">${eq.status==='ok'?'正常':eq.status==='warn'?'预警':'故障'}</span></td>
+          </tr>`).join('')}</tbody>
+        </table>
+      </div>
+      <div class="report-block">
+        <div class="report-title">三、故障诊断结果</div>
+        ${errEqs.length?errEqs.map(eq=>`
+          <div style="padding:.8rem;background:var(--red-dim);border-radius:var(--r);margin-bottom:.6rem;border-left:3px solid var(--red)">
+            <div style="font-weight:700;color:var(--red);margin-bottom:.3rem">⚠️ ${eq.name} (${eq.id}) - 严重异常</div>
+            <div style="font-size:.82rem;color:var(--text2);line-height:1.8">
+              振动有效值 ${eq.vib.val.toFixed(1)} mm/s 超过危险阈值 ${THRESHOLDS.vib.err} mm/s<br>
+              诊断结论：转子不平衡 + 气蚀（置信度 87%），对中偏差（置信度 62%）<br>
+              建议措施：立即停机检修，检查阀芯/叶轮及密封面
+            </div>
+          </div>
+        `).join(''):'<p style="color:var(--green);font-size:.84rem">✓ 所有设备运行正常，未检测到故障</p>'}
+        ${warnEqs.length?warnEqs.map(eq=>`
+          <div style="padding:.8rem;background:var(--amber-dim);border-radius:var(--r);margin-bottom:.6rem;border-left:3px solid var(--amber)">
+            <div style="font-weight:700;color:var(--amber);margin-bottom:.3rem">⚡ ${eq.name} (${eq.id}) - 预警</div>
+            <div style="font-size:.82rem;color:var(--text2);line-height:1.8">
+              振动有效值 ${eq.vib.val.toFixed(1)} mm/s 接近预警阈值<br>
+              建议：加强监测，7天内安排检修
+            </div>
+          </div>
+        `).join(''):''}
+      </div>
+      <div class="report-block">
+        <div class="report-title">四、维护建议</div>
+        <table class="report-table">
+          <thead><tr><th>优先级</th><th>设备</th><th>建议措施</th><th>建议时间</th></tr></thead>
+          <tbody>
+            ${errEqs.map(eq=>`<tr><td><span class="tag err">紧急</span></td><td>${eq.name}</td><td>停机检修，检查阀芯、密封面、叶轮</td><td style="color:var(--red);font-weight:600">立即</td></tr>`).join('')}
+            ${warnEqs.map(eq=>`<tr><td><span class="tag warn">计划</span></td><td>${eq.name}</td><td>安排停机检查，关注振动变化趋势</td><td style="color:var(--amber)">7天内</td></tr>`).join('')}
+            <tr><td><span class="tag ok">常规</span></td><td>所有正常设备</td><td>按常规周期巡检维护</td><td>按计划</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="report-block">
+        <div class="report-title">五、系统运行统计</div>
+        <p style="font-size:.84rem;color:var(--text2);line-height:1.8">
+          系统平均健康度：<strong style="color:var(--cyan);font-family:var(--mono)">${avgHealth}%</strong><br>
+          本周期数据采集量：${(EQUIPMENT.length*200*3).toLocaleString()} 条<br>
+          FFT分析频谱点数：250 点/通道<br>
+          Agent诊断推理步骤：${agentMessages.filter(m=>m.type==='reasoning').length} 步
+        </p>
+      </div>
+      <div style="text-align:center;padding:1rem;color:var(--text3);font-size:.76rem;font-family:var(--mono)">
+        — 报告由 CA6500 故障诊断 Agent 自动生成 —
+      </div>
+    `;
+  },1500);
+}
+
+function exportReport(){
+  const content=$id('reportContent').innerText;
+  const blob=new Blob([content],{type:'text/plain;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='设备健康评估报告_'+new Date().toISOString().slice(0,10)+'.txt';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+
+// ═══════════════════════════════════════════════
+// NAVIGATION & UTILS
+// ═══════════════════════════════════════════════
+const $id=x=>document.getElementById(x);
+
+function switchPage(page){
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelector(`.nav-item[data-page="${page}"]`)?.classList.add('active');
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  $id('page-'+page)?.classList.add('active');
+  if(page==='dashboard')renderDashboard();
+  if(page==='monitor')renderMonitor();
+  if(page==='spectrum')renderSpectrum();
+  if(page==='trend')renderTrend();
+  if(page==='agent')renderAgent();
+}
+
+document.getElementById('nav').addEventListener('click',e=>{
+  const item=e.target.closest('.nav-item');
+  if(item)switchPage(item.dataset.page);
+});
+
+function updateTime(){
+  $id('headerTime').textContent=new Date().toLocaleString('zh-CN',{hour12:false});
+}
+setInterval(updateTime,1000);updateTime();
+
+// ═══════════════════════════════════════════════
+// LIVE UPDATE LOOP
+// ═══════════════════════════════════════════════
+initData();
+
+setInterval(()=>{
+  updateLiveData();
+  // Update current page
+  const activePage=document.querySelector('.page.active')?.id?.replace('page-','');
+  if(activePage==='dashboard')renderDashboard();
+  if(activePage==='monitor'){
+    const eqId=$id('vibEqSel')?.value||EQUIPMENT[0].id;
+    const eq=EQUIPMENT.find(e=>e.id===eqId)||EQUIPMENT[0];
+    drawWave('vibWaveCanvas',eq.vibHistory.slice(-150),'#00d4ff');
+    drawWave('pressCanvas',eq.pressHistory.slice(-150),'#b388ff');
+    drawWave('noiseCanvas',eq.noiseHistory.slice(-150),'#00e676');
+    try{
+      drawGauge($id('gVib'),eq.vib.val,10,'振动 mm/s',eq.vib.val>4?'#ff1744':'#00d4ff');
+      drawGauge($id('gPress'),eq.press.in,5,'压力 bar','#b388ff');
+      drawGauge($id('gNoise'),eq.noise.val,100,'噪音 dB',eq.noise.val>80?'#ffab00':'#00e676');
+    }catch(e){}
+  }
+},2000);
+
+// Initial render
+renderDashboard();
+</script>
+</body>
+</html>
